@@ -4,17 +4,6 @@
 #include "packet.h"
 #include "network_table.h"
 
-/**
- * my-router run ID PORT
- * > my-router run A 10000
- * 
- * my-router configure ID SOURCE DEST PORT COST
- * > my-router configure A A B 10001 4
- * 
- * my-router send SOURCE DEST PAYLOAD
- * > my-router send A D "Hello World"
- */
-
 void print_help()
 {
     // TODO: Print out how to use our app
