@@ -1,26 +1,33 @@
 #pragma once
 #include <vector>
 #include <map>
-#include <tuple>
+#include <set>
 #include "types.h"
 
 typedef struct network_table_update
 {
-    router_id_t source;
-    router_id_t dest;
-    int port;
-    int cost;
-} NetworkTableUpdate;
+  router_id_t source;
+  router_id_t dest;
+  int port;
+  int cost;
+} NetworkRoute;
 
 class NetworkTable
 {
-  public:
-    int cost(router_id_t source, router_id_t dest);
-    std::vector<network_table_update> update(network_table_update *info);
+public:
+  NetworkTable(router_id_t root);
+  void update(const NetworkRoute *info);
+  NetworkRoute route(router_id_t dest);
+  void print();
 
-  private:
-    std::map<std::tuple<router_id_t, router_id_t>, int> traversePort;
+private:
+  NetworkRoute backtrack(router_id_t dest);
+  int cost(router_id_t dest);
 
-    // Lowest cost between two nodes on the network
-    std::map<std::tuple<router_id_t, router_id_t>, int> pathCost;
+  router_id_t root;
+
+  std::vector<NetworkRoute> routes;
+  std::set<router_id_t> nodes;
+  std::map<router_id_t, int> shortestPaths;
+  std::map<router_id_t, NetworkRoute> routingTable;
 };
