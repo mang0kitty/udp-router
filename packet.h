@@ -34,7 +34,7 @@ const packet_t CONTROL_PACKET_TYPE = 1;
 typedef struct control_packet
 {
     PacketHeader header;
-    NetworkTableUpdate update;
+    NetworkRoute update;
 } ControlPacket;
 
 const packet_t DATA_PACKET_TYPE = 2;

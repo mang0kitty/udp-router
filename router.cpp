@@ -1,10 +1,11 @@
 #include "router.h"
 
 Router::Router(router_id_t id, int port, std::ostream *log)
+    : networkTable(id)
 {
     this->id = id;
     this->port = port;
-    this->log = log;
+    this->logStream = log;
 }
 
 router_id_t Router::getId()

@@ -1,21 +1,157 @@
 #include "network_table.h"
+#include <climits>
+#include <iostream>
 
-int NetworkTable::cost(router_id_t source, router_id_t dest)
+NetworkTable::NetworkTable(router_id_t root)
 {
-    return this->pathCost.at(std::tuple(source, dest));
+    this->root = root;
+    this->nodes.insert(root);
+    this->shortestPaths[root] = 0;
 }
 
-std::vector<network_table_update> NetworkTable::update(network_table_update *info)
+void NetworkTable::print()
 {
-    this->traversePort.insert_or_assign(std::tuple(info->source, info->dest), info->port);
+    std::cout << "Routing Table:" << std::endl;
 
-    std::vector<network_table_update> pendingUpdates;
+    for (auto &&entry : routingTable)
+    {
+        auto route = entry.second;
+        std::cout << " * " << route.source << "->" << route.dest << " costs " << route.cost << " via port " << route.port << std::endl;
+    }
 
-    // TODO: This needs to be a Bellman-Ford path update with the new data.
-    //       It should update the entire pathCost map to reflect the changes that were made.
-    //       If we improve a known shortest path, we should notify our neighbours about that
-    //       by reporting it as an update (in pendingUpdates).
-    this->pathCost.insert_or_assign(std::tuple(info->source, info->dest), info->cost);
+    std::cout << std::endl;
+}
 
-    return pendingUpdates;
+void NetworkTable::update(const NetworkRoute *info)
+{
+    auto isUpdate = false;
+
+    for (int i = 0; i < this->routes.size(); i++)
+    {
+        auto route = routes[i];
+
+        // Filter out routes which don't match our new one
+        if (route.source != info->source || route.dest != info->dest)
+            continue;
+
+        routes[i].port = info->port;
+
+        if (info->cost >= route.cost)
+        {
+            // We're already running an optimal route here
+            return;
+        }
+
+        routes[i].cost = info->cost;
+        isUpdate = true;
+        break;
+    }
+
+    if (!isUpdate)
+    {
+        this->routes.push_back(*info);
+        this->nodes.insert(info->source);
+        this->nodes.insert(info->dest);
+    }
+
+    // Bellman-Ford algorithm to find shortest path through the graph
+    // from root to each node.
+    for (auto &&node : this->nodes)
+    {
+        for (auto &&route : this->routes)
+        {
+            int estCost = cost(route.source);
+            if (estCost < INT_MAX)
+                estCost += route.cost;
+
+            if (estCost < cost(route.dest))
+            {
+                this->shortestPaths[route.dest] = estCost;
+            }
+        }
+    }
+
+    for (auto &&route : this->routes)
+    {
+        auto sourceCost = cost(route.source);
+        if (sourceCost < INT_MAX)
+        {
+            auto destCost = cost(route.dest);
+            if (sourceCost + route.cost < destCost)
+                throw "negative weight cycle detected in graph";
+        }
+    }
+
+    // Enter the paths into the routing table
+    for (auto &&node : this->nodes)
+    {
+        if (node == this->root)
+            continue;
+        auto route = this->backtrack(node);
+        if (route.cost == INT_MAX)
+            continue;
+
+        this->routingTable[node] = route;
+    }
+}
+
+int NetworkTable::cost(router_id_t dest)
+{
+    auto costEntry = this->shortestPaths.find(dest);
+    if (costEntry == this->shortestPaths.end())
+        return INT_MAX;
+
+    return costEntry->second;
+}
+
+NetworkRoute NetworkTable::route(router_id_t dest)
+{
+    auto routeEntry = routingTable.find(dest);
+    if (routeEntry == routingTable.end())
+    {
+        NetworkRoute result;
+        result.source = this->root;
+        result.dest = dest;
+        result.cost = INT_MAX;
+        result.port = -1;
+        return result;
+    }
+
+    return routeEntry->second;
+}
+
+NetworkRoute NetworkTable::backtrack(router_id_t dest)
+{
+    for (auto &&route : this->routes)
+    {
+        // Filter out routes which don't end at our destination
+        if (route.dest != dest)
+            continue;
+
+        auto sourceCost = cost(route.source);
+
+        // If we can't reach the source, ignore the route
+        if (sourceCost == INT_MAX)
+            continue;
+
+        // Filter out longer paths
+        if (sourceCost + route.cost != cost(dest))
+            continue;
+
+        if (route.source == this->root)
+            return route;
+
+        auto result = backtrack(route.source);
+        result.dest = dest;
+        result.cost += route.cost;
+        return result;
+    }
+
+    // Not found case
+    NetworkRoute result;
+    result.source = this->root;
+    result.dest = dest;
+    result.cost = INT_MAX;
+    result.port = -1;
+    return result;
 }

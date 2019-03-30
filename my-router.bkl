@@ -1,0 +1,9 @@
+toolsets = gnu vs2013;
+program my-router {
+    sources {
+        my-router.cpp
+        network_table.cpp
+        router.cpp
+        udp.cpp
+    }
+}
