@@ -6,7 +6,6 @@ trap "pkill -P $$" EXIT
 ./my-router run C 10002 > routerC.txt & 
 ./my-router run D 10003 > routerD.txt & 
 ./my-router run E 10004 > routerE.txt & 
-./my-router run F 10005 > routerF.txt & 
 
 ./my-router configure A 10000 A B 10001 4
 ./my-router configure A 10000 A E 10004 1
@@ -27,14 +26,19 @@ trap "pkill -P $$" EXIT
 ./my-router configure E 10004 E B 10001 2
 ./my-router configure E 10004 E F 10005 3
 
+sleep 5
+
+./my-router send 10003 C B "Hello B, C sending you a message!"
+
+./my-router run F 10005 > routerF.txt & 
+
 ./my-router configure F 10005 F B 10001 1
 ./my-router configure F 10005 F C 10002 1
 ./my-router configure F 10005 F D 10003 3
 ./my-router configure F 10005 F E 10004 3
 
+sleep 5
 
-sleep 16
-
-./my-router send 10003 C B "Hello B, C sending you a message!"
+./my-router send 10003 C F "Hello F, C sending you a message!"
 
 sleep 1

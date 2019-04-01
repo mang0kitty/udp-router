@@ -108,13 +108,18 @@ bool NetworkTable::update(const NetworkRoute *info)
 
     // Bellman-Ford algorithm to find shortest path through the graph
     // from root to each node.
+    this->shortestPaths.clear();
+    this->shortestPaths[this->root] = 0;
+
     for (auto &&node : this->nodes)
     {
         for (auto &&route : this->routes)
         {
             int estCost = cost(route.source);
-            if (estCost < INT_MAX)
-                estCost += route.cost;
+            estCost += route.cost;
+
+            if (estCost < 0)
+                estCost = INT_MAX;
 
             if (estCost < cost(route.dest))
             {
@@ -129,7 +134,7 @@ bool NetworkTable::update(const NetworkRoute *info)
         if (sourceCost < INT_MAX)
         {
             auto destCost = cost(route.dest);
-            if (sourceCost + route.cost < destCost)
+            if (sourceCost + route.cost >= 0 && sourceCost + route.cost < destCost)
                 throw "negative weight cycle detected in graph";
         }
     }
@@ -139,10 +144,8 @@ bool NetworkTable::update(const NetworkRoute *info)
     {
         if (node == this->root)
             continue;
-        auto route = this->backtrack(node);
-        if (route.cost == INT_MAX)
-            continue;
 
+        auto route = this->backtrack(node);
         this->routingTable[node] = route;
     }
 

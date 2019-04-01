@@ -23,11 +23,61 @@ void print_help()
     std::cout << "   e.g. my-router configure A 10001 A B 10002 7" << std::endl;
 }
 
+void router_run_watchdog(router_id_t id, NetworkTable *networkTable, std::map<router_id_t, std::chrono::system_clock::time_point> *heartbeats)
+{
+    std::map<router_id_t, NetworkRoute> originalRoutes;
+
+    while (1)
+    {
+        sleep(1);
+        auto now = std::chrono::system_clock::now();
+        auto expiresAt = now - std::chrono::seconds(3);
+
+        auto original = networkTable->to_string();
+        for (auto &&entry : *heartbeats)
+        {
+            if (entry.second < expiresAt && originalRoutes.find(entry.first) == originalRoutes.end())
+            {
+                originalRoutes[entry.first] = networkTable->route(entry.first);
+
+                NetworkRoute route;
+                route.source = id;
+                route.dest = entry.first;
+                route.port = -1;
+                route.cost = INT_MAX - 1;
+
+                networkTable->update(&route);
+                std::cout << id << ": heartbeat lost for " << entry.first << ": marked route as unavailable" << std::endl;
+            }
+            else if (entry.second > expiresAt && originalRoutes.find(entry.first) != originalRoutes.end())
+            {
+                networkTable->update(&originalRoutes[entry.first]);
+                originalRoutes.erase(entry.first);
+                std::cout << id << ": heartbeat returned for " << entry.first << ": marked route as available again" << std::endl;
+            }
+        }
+
+        auto updated = networkTable->to_string();
+        if (updated.compare(original) != 0)
+        {
+            auto now = std::chrono::system_clock::now();
+            auto now_time = std::chrono::system_clock::to_time_t(now);
+
+            std::cout << "---------------------------------" << std::endl;
+            std::cout << std::ctime(&now_time) << std::endl;
+            std::cout << "Original Routing Table:" << std::endl;
+            std::cout << original << std::endl;
+            std::cout << "New Routing Table:" << std::endl;
+            std::cout << updated << std::endl;
+        }
+    }
+}
+
 void router_run_propagate(NetworkTable *networkTable)
 {
     while (1)
     {
-        sleep(5);
+        sleep(1);
 
         auto neighboursList = networkTable->neighbours();
         auto routingTableList = networkTable->full_table();
@@ -76,8 +126,10 @@ int router_run(std::vector<std::string> args)
     // TODO: Move all of this into the router.cpp file
     UDPServer server(port);
     NetworkTable networkTable(id);
+    std::map<router_id_t, std::chrono::system_clock::time_point> heartbeats;
 
     std::thread propagator(router_run_propagate, &networkTable);
+    std::thread watchdog(router_run_watchdog, id, &networkTable, &heartbeats);
 
     while (1)
     {
@@ -107,6 +159,8 @@ int router_run(std::vector<std::string> args)
         {
             auto controlPacket = (const ControlPacket *)(&data[0]);
             std::cout << id << ": received control packet from " << header->source << ": " << controlPacket->update.source << "->" << controlPacket->update.dest << " via " << controlPacket->update.port << " costs " << controlPacket->update.cost << std::endl;
+
+            heartbeats[controlPacket->update.dest] = std::chrono::system_clock::now();
             if (networkTable.update(&controlPacket->update))
             {
                 std::cout << id << ": ";
@@ -117,6 +171,7 @@ int router_run(std::vector<std::string> args)
         case DV_PACKET_TYPE:
         {
             auto dvPacket = (const DVPacket *)(&data[0]);
+            heartbeats[dvPacket->header.source] = std::chrono::system_clock::now();
 
             auto original = networkTable.to_string();
 
