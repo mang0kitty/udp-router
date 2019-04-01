@@ -21,6 +21,8 @@ public:
   void print();
   std::vector<NetworkRoute> neighbours();
   std::vector<NetworkRoute> full_table();
+  int port_to(router_id_t dest);
+  std::string to_string();
 
 private:
   NetworkRoute backtrack(router_id_t dest);

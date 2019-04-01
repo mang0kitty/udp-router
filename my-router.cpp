@@ -9,6 +9,7 @@
 #include <climits>
 #include <unistd.h>
 #include <thread>
+#include <chrono>
 
 void print_help()
 {
@@ -35,17 +36,23 @@ void router_run_propagate(NetworkTable *networkTable)
         {
             UDPClient client(neighbour.port);
 
+            DVPacket packet;
+            memset(&packet, 0, sizeof(DVPacket));
+            packet.header.packetType = DV_PACKET_TYPE;
+            packet.header.source = neighbour.source;
+            packet.header.dest = neighbour.dest;
+
+            int i = 0;
             for (auto &&route : routingTableList)
             {
-                ControlPacket packet;
-                packet.header.packetType = CONTROL_PACKET_TYPE;
-                packet.header.source = neighbour.source;
-                packet.header.dest = neighbour.dest;
-
-                packet.update = route;
-
-                client.write(&packet, sizeof(packet));
+                packet.sources[i] = route.dest;
+                packet.costs[i] = route.cost;
+                i++;
+                if (i == 50)
+                    throw "cannot support more than 50 routes per distance vector packet";
             }
+
+            client.write(&packet, sizeof(packet));
         }
     }
 }
@@ -89,6 +96,7 @@ int router_run(std::vector<std::string> args)
 
             UDPClient client(route.port);
             client.write(data);
+            std::cout << id << ": forwarded packet from " << header->source << " to " << header->dest << " via port " << route.port << std::endl;
 
             continue;
         }
@@ -103,6 +111,41 @@ int router_run(std::vector<std::string> args)
             {
                 std::cout << id << ": ";
                 networkTable.print();
+            }
+        }
+        break;
+        case DV_PACKET_TYPE:
+        {
+            auto dvPacket = (const DVPacket *)(&data[0]);
+
+            auto original = networkTable.to_string();
+
+            for (int i = 0; i < sizeof(dvPacket->sources); i++)
+            {
+                if (!dvPacket->sources[i])
+                    break;
+
+                NetworkRoute route;
+                route.source = dvPacket->header.source;
+                route.dest = dvPacket->sources[i];
+                route.cost = dvPacket->costs[i];
+                route.port = networkTable.port_to(dvPacket->header.source);
+
+                networkTable.update(&route);
+            }
+
+            auto updated = networkTable.to_string();
+            if (updated.compare(original) != 0)
+            {
+                auto now = std::chrono::system_clock::now();
+                auto now_time = std::chrono::system_clock::to_time_t(now);
+
+                std::cout << "---------------------------------" << std::endl;
+                std::cout << std::ctime(&now_time) << std::endl;
+                std::cout << "Original Routing Table:" << std::endl;
+                std::cout << original << std::endl;
+                std::cout << "New Routing Table:" << std::endl;
+                std::cout << updated << std::endl;
             }
         }
         break;
