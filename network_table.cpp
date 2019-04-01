@@ -9,20 +9,51 @@ NetworkTable::NetworkTable(router_id_t root)
     this->shortestPaths[root] = 0;
 }
 
+std::vector<NetworkRoute> NetworkTable::neighbours()
+{
+    std::vector<NetworkRoute> neighboursList;
+    for (auto &&route : routes)
+    {
+        if (route.source != this->root)
+        {
+            continue;
+        }
+
+        neighboursList.push_back(route);
+    }
+    return neighboursList;
+}
+
+std::vector<NetworkRoute> NetworkTable::full_table()
+{
+    std::vector<NetworkRoute> routingTableList;
+
+    for (auto &&entry : routingTable)
+    {
+        routingTableList.push_back(entry.second);
+    }
+
+    return routingTableList;
+}
+
 void NetworkTable::print()
 {
     std::cout << "Routing Table:" << std::endl;
 
     for (auto &&entry : routingTable)
     {
+
         auto route = entry.second;
-        std::cout << " * " << route.source << "->" << route.dest << " costs " << route.cost << " via port " << route.port << std::endl;
+        if (route.source == this->root)
+        {
+            std::cout << " * " << route.source << "->" << route.dest << " costs " << route.cost << " via port " << route.port << std::endl;
+        }
     }
 
     std::cout << std::endl;
 }
 
-void NetworkTable::update(const NetworkRoute *info)
+bool NetworkTable::update(const NetworkRoute *info)
 {
     auto isUpdate = false;
 
@@ -34,14 +65,13 @@ void NetworkTable::update(const NetworkRoute *info)
         if (route.source != info->source || route.dest != info->dest)
             continue;
 
-        routes[i].port = info->port;
-
-        if (info->cost >= route.cost)
+        if (info->cost == route.cost && info->port == route.port)
         {
-            // We're already running an optimal route here
-            return;
+            // We're already running this route, nothing has changed
+            return false;
         }
 
+        routes[i].port = info->port;
         routes[i].cost = info->cost;
         isUpdate = true;
         break;
@@ -93,6 +123,8 @@ void NetworkTable::update(const NetworkRoute *info)
 
         this->routingTable[node] = route;
     }
+
+    return true;
 }
 
 int NetworkTable::cost(router_id_t dest)

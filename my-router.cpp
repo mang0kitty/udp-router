@@ -7,6 +7,8 @@
 #include "network_table.h"
 #include "udp.h"
 #include <climits>
+#include <unistd.h>
+#include <thread>
 
 void print_help()
 {
@@ -18,6 +20,34 @@ void print_help()
     std::cout << "   e.g. my-router send 10001 A D 'Hello world!'" << std::endl;
     std::cout << "my-router configure ID PORT SOURCE DEST DPORT COST" << std::endl;
     std::cout << "   e.g. my-router configure A 10001 A B 10002 7" << std::endl;
+}
+
+void router_run_propagate(NetworkTable *networkTable)
+{
+    while (1)
+    {
+        sleep(5);
+
+        auto neighboursList = networkTable->neighbours();
+        auto routingTableList = networkTable->full_table();
+
+        for (auto &&neighbour : neighboursList)
+        {
+            UDPClient client(neighbour.port);
+
+            for (auto &&route : routingTableList)
+            {
+                ControlPacket packet;
+                packet.header.packetType = CONTROL_PACKET_TYPE;
+                packet.header.source = neighbour.source;
+                packet.header.dest = neighbour.dest;
+
+                packet.update = route;
+
+                client.write(&packet, sizeof(packet));
+            }
+        }
+    }
 }
 
 /**
@@ -40,6 +70,8 @@ int router_run(std::vector<std::string> args)
     UDPServer server(port);
     NetworkTable networkTable(id);
 
+    std::thread propagator(router_run_propagate, &networkTable);
+
     while (1)
     {
         auto data = server.read();
@@ -51,7 +83,7 @@ int router_run(std::vector<std::string> args)
             auto route = networkTable.route(header->dest);
             if (route.cost == INT_MAX)
             {
-                std::cout << "failed to forward packet to " << header->dest << ": no known route" << std::endl;
+                std::cout << id << ": failed to forward packet to " << header->dest << ": no known route" << std::endl;
                 continue;
             }
 
@@ -66,18 +98,22 @@ int router_run(std::vector<std::string> args)
         case CONTROL_PACKET_TYPE:
         {
             auto controlPacket = (const ControlPacket *)(&data[0]);
-            networkTable.update(&controlPacket->update);
-            networkTable.print();
+            std::cout << id << ": received control packet from " << header->source << ": " << controlPacket->update.source << "->" << controlPacket->update.dest << " via " << controlPacket->update.port << " costs " << controlPacket->update.cost << std::endl;
+            if (networkTable.update(&controlPacket->update))
+            {
+                std::cout << id << ": ";
+                networkTable.print();
+            }
         }
         break;
         case DATA_PACKET_TYPE:
         {
             auto dataPacket = (const DataPacket *)(&data[0]);
-            std::cout << "received data packet from " << header->source << ": " << dataPacket->payload << std::endl;
+            std::cout << id << ": received data packet from " << header->source << ": " << dataPacket->payload << std::endl;
         }
         break;
         default:
-            std::cout << "unrecognized packet type " << header->packetType << std::endl;
+            std::cout << id << ": unrecognized packet type " << header->packetType << std::endl;
             break;
         }
     }
