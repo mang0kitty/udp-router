@@ -1,12 +1,24 @@
 #include "network_table.h"
 #include <climits>
 #include <iostream>
+#include <sstream>
 
 NetworkTable::NetworkTable(router_id_t root)
 {
     this->root = root;
     this->nodes.insert(root);
     this->shortestPaths[root] = 0;
+}
+
+int NetworkTable::port_to(router_id_t dest)
+{
+    for (auto &&route : this->routes)
+    {
+        if (route.source == this->root && route.dest == dest)
+            return route.port;
+    }
+
+    return -1;
 }
 
 std::vector<NetworkRoute> NetworkTable::neighbours()
@@ -40,17 +52,27 @@ void NetworkTable::print()
 {
     std::cout << "Routing Table:" << std::endl;
 
+    std::cout << this->to_string();
+}
+
+std::string NetworkTable::to_string()
+{
+    std::stringstream out;
+
+    out << "SOURCE   DEST    VIA-PORT    COST" << std::endl;
+
     for (auto &&entry : routingTable)
     {
-
         auto route = entry.second;
         if (route.source == this->root)
         {
-            std::cout << " * " << route.source << "->" << route.dest << " costs " << route.cost << " via port " << route.port << std::endl;
+            out << "  " << route.source << "       " << route.dest << "        " << route.port << "      " << route.cost << std::endl;
         }
     }
 
-    std::cout << std::endl;
+    out << std::endl;
+
+    return out.str();
 }
 
 bool NetworkTable::update(const NetworkRoute *info)

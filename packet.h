@@ -37,7 +37,16 @@ typedef struct control_packet
     NetworkRoute update;
 } ControlPacket;
 
-const packet_t DATA_PACKET_TYPE = 2;
+const packet_t DV_PACKET_TYPE = 2;
+
+typedef struct dv_packet
+{
+    PacketHeader header;
+    char sources[50];
+    int costs[50];
+} DVPacket;
+
+const packet_t DATA_PACKET_TYPE = 3;
 
 /**
  * Send a payload from Router A to Router D
