@@ -18,6 +18,8 @@ public:
   NetworkTable(router_id_t root);
   bool update(const NetworkRoute *info);
   NetworkRoute route(router_id_t dest);
+  NetworkRoute route(router_id_t source, router_id_t dest);
+  std::vector<NetworkRoute> routes_to(router_id_t dest);
   void print();
   std::vector<NetworkRoute> neighbours();
   std::vector<NetworkRoute> full_table();
