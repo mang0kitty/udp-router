@@ -16,9 +16,11 @@ class NetworkTable
 {
 public:
   NetworkTable(router_id_t root);
-  void update(const NetworkRoute *info);
+  bool update(const NetworkRoute *info);
   NetworkRoute route(router_id_t dest);
   void print();
+  std::vector<NetworkRoute> neighbours();
+  std::vector<NetworkRoute> full_table();
 
 private:
   NetworkRoute backtrack(router_id_t dest);
