@@ -6,7 +6,13 @@ trap "pkill -P $$" EXIT
 ./my-router run C 10002 > routerC.txt & 
 ./my-router run D 10003 > routerD.txt & 
 ./my-router run E 10004 > routerE.txt & 
+./my-router run F 10005 > routerF.txt & 
+ROUTERPID=$!
 
+./my-router configure F 10005 F B 10001 1
+./my-router configure F 10005 F C 10002 1
+./my-router configure F 10005 F D 10003 3
+./my-router configure F 10005 F E 10004 3
 ./my-router configure A 10000 A B 10001 4
 ./my-router configure A 10000 A E 10004 1
 
@@ -26,10 +32,21 @@ trap "pkill -P $$" EXIT
 ./my-router configure E 10004 E B 10001 2
 ./my-router configure E 10004 E F 10005 3
 
+# Let the routers propagate their route changes
 sleep 5
 
 ./my-router send 10003 C B "Hello B, C sending you a message!"
 
+# Now kill off router F and wait for the routers to detect that it is offline
+kill $ROUTERPID
+sleep 20
+
+# Now send a message via a path which used to require F
+./my-router send 10000 A D "Hello D, A sending you a message!"
+
+# We should see that it gets sent through a path which avoids F
+
+# Now start F again and reconfigure it
 ./my-router run F 10005 > routerF.txt & 
 
 ./my-router configure F 10005 F B 10001 1
@@ -39,6 +56,10 @@ sleep 5
 
 sleep 5
 
+# Send a message directly to F
 ./my-router send 10003 C F "Hello F, C sending you a message!"
+
+# And also send that same packet to D and see that it routes via F
+./my-router send 10000 A D "Hello D, A sending you a message!"
 
 sleep 1
