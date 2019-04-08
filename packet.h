@@ -7,6 +7,7 @@ typedef struct packet_header
     packet_t packetType;
     router_id_t source;
     router_id_t dest;
+    int ttl;
 } PacketHeader;
 
 const packet_t CONTROL_PACKET_TYPE = 1;
