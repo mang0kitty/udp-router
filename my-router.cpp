@@ -91,6 +91,7 @@ void router_run_propagate(NetworkTable *networkTable)
             packet.header.packetType = DV_PACKET_TYPE;
             packet.header.source = neighbour.source;
             packet.header.dest = neighbour.dest;
+            packet.header.ttl = 1;
 
             int i = 0;
             for (auto &&route : routingTableList)
@@ -138,6 +139,12 @@ int router_run(std::vector<std::string> args)
 
         if (header->dest != id)
         {
+            if (header->ttl == 1)
+            {
+                std::cout << id << ": failed to forward packet to " << header->dest << ": ttl expired" << std::endl;
+                continue;
+            }
+
             // Forward the packet
             auto route = networkTable.route(header->dest);
             if (route.cost == INT_MAX)
@@ -146,9 +153,11 @@ int router_run(std::vector<std::string> args)
                 continue;
             }
 
+            header->ttl--;
+
             UDPClient client(route.port);
             client.write(data);
-            std::cout << id << ": forwarded packet from " << header->source << " to " << header->dest << " via port " << route.port << std::endl;
+            std::cout << id << ": forwarded packet from " << header->source << " to " << header->dest << " via port " << route.port << " (ttl:" << header->ttl << ")" << std::endl;
 
             continue;
         }
@@ -240,6 +249,7 @@ int router_configure(std::vector<std::string> args)
     packet.header.packetType = CONTROL_PACKET_TYPE;
     packet.header.source = id;
     packet.header.dest = id;
+    packet.header.ttl = 10;
 
     packet.update.source = (router_id_t)*args[2].c_str();
     packet.update.dest = (router_id_t)*args[3].c_str();
@@ -270,6 +280,7 @@ int router_send(std::vector<std::string> args)
     packet.header.packetType = DATA_PACKET_TYPE;
     packet.header.source = (router_id_t)*args[1].c_str();
     packet.header.dest = (router_id_t)*args[2].c_str();
+    packet.header.ttl = 10;
 
     std::string payload = args[3].substr(0, 99); // Limit this to 99 chars (100 including \0)
     memcpy(packet.payload, payload.c_str(), payload.size() + 1);
