@@ -9,10 +9,6 @@ trap "pkill -P $$" EXIT
 ./my-router run F 10005 > routerF.txt & 
 ROUTERPID=$!
 
-./my-router configure F 10005 F B 10001 1
-./my-router configure F 10005 F C 10002 1
-./my-router configure F 10005 F D 10003 3
-./my-router configure F 10005 F E 10004 3
 ./my-router configure A 10000 A B 10001 4
 ./my-router configure A 10000 A E 10004 1
 
@@ -31,6 +27,11 @@ ROUTERPID=$!
 ./my-router configure E 10004 E A 10000 1
 ./my-router configure E 10004 E B 10001 2
 ./my-router configure E 10004 E F 10005 3
+
+./my-router configure F 10005 F B 10001 1
+./my-router configure F 10005 F C 10002 1
+./my-router configure F 10005 F D 10003 3
+./my-router configure F 10005 F E 10004 3
 
 # Let the routers propagate their route changes
 sleep 5
