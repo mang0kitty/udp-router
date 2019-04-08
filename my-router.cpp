@@ -153,7 +153,10 @@ int router_run(std::vector<std::string> args)
                 continue;
             }
 
-            header->ttl--;
+            {
+                auto header = (PacketHeader *)(&data[0]);
+                header->ttl--;
+            }
 
             UDPClient client(route.port);
             client.write(data);
