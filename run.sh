@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 trap "pkill -P $$" EXIT
 
+echo "Starting routers"
 ./my-router run A 10000 > routerA.txt &
 ./my-router run B 10001 > routerB.txt &
 ./my-router run C 10002 > routerC.txt & 
@@ -39,8 +40,11 @@ sleep 5
 ./my-router send 10003 C B "Hello B, C sending you a message!"
 
 # Now kill off router F and wait for the routers to detect that it is offline
+echo "Killing router F"
 kill $ROUTERPID
+echo "Waiting for other routers to discover F is dead"
 sleep 20
+
 
 # Now send a message via a path which used to require F
 ./my-router send 10000 A D "Hello D, A sending you a message!"
@@ -48,7 +52,7 @@ sleep 20
 # We should see that it gets sent through a path which avoids F
 
 # Now start F again and reconfigure it
-./my-router run F 10005 > routerF.txt & 
+./my-router run F 10005 >> routerF.txt & 
 
 ./my-router configure F 10005 F B 10001 1
 ./my-router configure F 10005 F C 10002 1
